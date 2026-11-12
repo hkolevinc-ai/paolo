@@ -1,0 +1,211 @@
+{
+  "_instructions": "Всички настройки са редактируеми. Не избирайте производител/произход само защото са налични в менюто. Използвайте проверени данни.",
+  "quantity_if_in_stock": 1,
+  "request_delay_seconds": 1.5,
+  "defaults": {
+    "RQ": "Lazur",
+    "RR": "2 Days",
+    "RS": "I will ship this item myself"
+  },
+  "brand_defaults": {},
+  "category_defaults": {},
+  "sku_categories": {},
+  "sku_overrides": {},
+  "category_rules": [
+    {
+      "field": "name",
+      "pattern": "вериги.*(?:камион|truck)",
+      "category": "19867"
+    },
+    {
+      "field": "name",
+      "pattern": "вериги.*(?:трактор|tractor)",
+      "category": "19868"
+    },
+    {
+      "field": "name",
+      "pattern": "вериги.*(?:ATV|\\bUTV\\b)",
+      "category": "19865"
+    },
+    {
+      "field": "category",
+      "pattern": "вериги.*камион|камиони.*вериги",
+      "category": "19867"
+    },
+    {
+      "field": "name",
+      "pattern": "текстилни?\\s+вериги|вериги.*(?:лека?\\s+кола|автомобил)|вериги.*(?:сняг|\\bKN\\d|TN\\d)",
+      "category": "19866"
+    },
+    {
+      "field": "name",
+      "pattern": "хидравлично масло",
+      "category": "20415"
+    },
+    {
+      "field": "name",
+      "pattern": "трансмисионно масло|масло.*скоростн|gear oil",
+      "category": "20414"
+    },
+    {
+      "field": "name",
+      "pattern": "динамометричен ключ",
+      "category": "15532"
+    },
+    {
+      "field": "name",
+      "pattern": "шестограм|imbus|hex key",
+      "category": "15528"
+    },
+    {
+      "field": "name",
+      "pattern": "раздвижен.*ключ|ключ.*раздвижен",
+      "category": "15525"
+    },
+    {
+      "field": "category",
+      "pattern": "вериги.*(?:камион|truck)|камиони.*вериги",
+      "category": "19867"
+    },
+    {
+      "field": "category",
+      "pattern": "метални вериги|вериги за сняг|текстилни вериги",
+      "category": "19866"
+    },
+    {
+      "field": "category",
+      "pattern": "стелки за багажник|универсални стелки за багажник",
+      "category": "22092"
+    },
+    {
+      "field": "category",
+      "pattern": "гумени стелки|мокетни стелки|универсални стелки за кола",
+      "category": "22093"
+    },
+    {
+      "field": "category",
+      "pattern": "крушки за габарити",
+      "category": "21946"
+    },
+    {
+      "field": "category",
+      "pattern": "ксенонови крушки|халогенни крушки|лед крушки за кола|лед крушки за фарове",
+      "category": "21922"
+    },
+    {
+      "field": "category",
+      "pattern": "лед бар|led bar",
+      "category": "21956"
+    },
+    {
+      "field": "category",
+      "pattern": "лед ленти",
+      "category": "21967"
+    },
+    {
+      "field": "category",
+      "pattern": "лед плафони",
+      "category": "21946"
+    },
+    {
+      "field": "category",
+      "pattern": "сигнални лампи и маяци",
+      "category": "22028"
+    },
+    {
+      "field": "category",
+      "pattern": "халогени",
+      "category": "21978"
+    },
+    {
+      "field": "category",
+      "pattern": "дневни светлини",
+      "category": "21226"
+    },
+    {
+      "field": "category",
+      "pattern": "букси за ремарке",
+      "category": "22333"
+    },
+    {
+      "field": "category",
+      "pattern": "амортисьори за багажник",
+      "category": "21694"
+    },
+    {
+      "field": "category",
+      "pattern": "подложки за пружини",
+      "category": "21692"
+    },
+    {
+      "field": "category",
+      "pattern": "кабели за подаване на ток",
+      "category": "20433"
+    },
+    {
+      "field": "category",
+      "pattern": "автомобилни масла",
+      "category": "20416"
+    },
+    {
+      "field": "category",
+      "pattern": "стойка за телефон за кола",
+      "category": "24269"
+    },
+    {
+      "field": "category",
+      "pattern": "поставки за чаша",
+      "category": "22135"
+    },
+    {
+      "field": "category",
+      "pattern": "ключодържател за кола",
+      "category": "22137"
+    },
+    {
+      "field": "category",
+      "pattern": "калъфи за седалки|тапицерия за кола",
+      "category": "22102"
+    },
+    {
+      "field": "category",
+      "pattern": "подложки за седалки",
+      "category": "22099"
+    },
+    {
+      "field": "category",
+      "pattern": "щори за кола",
+      "category": "22112"
+    },
+    {
+      "field": "category",
+      "pattern": "стъргалки за лед и четки",
+      "category": "22221"
+    },
+    {
+      "field": "category",
+      "pattern": "напречни греди за багажник",
+      "category": "22156"
+    },
+    {
+      "field": "category",
+      "pattern": "колани за багаж",
+      "category": "22284"
+    },
+    {
+      "field": "category",
+      "pattern": "опорни колела",
+      "category": "22338"
+    },
+    {
+      "field": "category",
+      "pattern": "гедоре комплекти",
+      "category": "15531"
+    },
+    {
+      "field": "category",
+      "pattern": "гаечни ключове",
+      "category": "15527"
+    }
+  ]
+}
