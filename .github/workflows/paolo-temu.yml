@@ -1,0 +1,86 @@
+name: Paolo to Temu
+on:
+  workflow_dispatch:
+    inputs:
+      start_url:
+        description: Catalogue/category/product URL
+        required: true
+        default: https://b2b.paolo.ltd/produkti
+        type: string
+      limit:
+        description: In-stock products (5 = test; 0 = all)
+        required: true
+        default: '5'
+        type: string
+      max_minutes:
+        description: Runtime before saving partial results (maximum 300)
+        required: true
+        default: '240'
+        type: string
+      resume_run_id:
+        description: Previous run ID to continue (empty = fresh scan)
+        required: false
+        default: ''
+        type: string
+      quantity_if_in_stock:
+        description: Temu allocation per in-stock SKU (not the warehouse count)
+        required: true
+        default: '1'
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: paolo-temu-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install scraper dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Verify template and rules
+        run: python -m unittest discover -s tests -v
+      - name: Restore previous checkpoint
+        if: ${{ inputs.resume_run_id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: paolo-temu-results
+          run-id: ${{ inputs.resume_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: output
+      - name: Scrape in-stock products and fill Temu template
+        env:
+          PAOLO_EMAIL: ${{ secrets.PAOLO_EMAIL }}
+          PAOLO_PASSWORD: ${{ secrets.PAOLO_PASSWORD }}
+          START_URL: ${{ inputs.start_url }}
+          LIMIT: ${{ inputs.limit }}
+          MAX_MINUTES: ${{ inputs.max_minutes }}
+          RESUME_RUN_ID: ${{ inputs.resume_run_id }}
+          TEMU_ALLOCATION: ${{ inputs.quantity_if_in_stock }}
+        shell: bash
+        run: |
+          if [ -z "$PAOLO_EMAIL" ] || [ -z "$PAOLO_PASSWORD" ]; then
+            echo 'Add repository Secrets PAOLO_EMAIL and PAOLO_PASSWORD first.'
+            exit 1
+          fi
+          python -c 'import json,os; p="config.json"; d=json.load(open(p,encoding="utf-8")); d["quantity_if_in_stock"]=int(os.environ["TEMU_ALLOCATION"]); open(p,"w",encoding="utf-8").write(json.dumps(d,ensure_ascii=False,indent=2))'
+          args=(--start "$START_URL" --limit "$LIMIT" --max-minutes "$MAX_MINUTES")
+          if [ -n "$RESUME_RUN_ID" ]; then args+=(--resume); fi
+          python -u run.py "${args[@]}"
+      - name: Downloadable Excel, prices and checkpoint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paolo-temu-results
+          path: output/
+          if-no-files-found: warn
+          retention-days: 30
