@@ -11,6 +11,8 @@ import requests
 
 from paolo import BASE, Client, ScraperError, listing_links, parse_product, site_url, stock_state
 from run import main
+from run import make_exports
+from enrichment import infer_fields
 from temu import NS, TAG, Template, map_product
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,8 +40,10 @@ class PipelineTests(unittest.TestCase):
         return parse_product(fixture(), BASE + 'pr-test')
 
     def test_stock_positive_and_negative(self):
-        for value in ['Налично', 'На изчерпване', 'Последни бройки']:
+        for value in ['Налично', 'В наличност']:
             self.assertEqual(stock_state({'availability': value}), 'in_stock')
+        for value in ['На изчерпване', 'Последни бройки', 'Limited availability']:
+            self.assertEqual(stock_state({'availability': value}), 'low_stock')
         for value in ['Изчерпан', 'Няма наличност', 'Не е наличен', 'По поръчка', 'Out of stock']:
             self.assertEqual(stock_state({'availability': value}), 'out_of_stock')
         self.assertEqual(stock_state({'availability': 'Налично', 'purchase_limit': '0'}), 'out_of_stock')
@@ -50,6 +54,59 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual((p['price'], p['currency'], p['sku']), ('12.34', 'EUR', '00123'))
         self.assertEqual(p['availability'], 'Налично')
         self.assertEqual(p['images'], BASE + 'Images/Items/Big/a.jpg')
+
+    def test_vehicle_light_specs_from_description(self):
+        p = self.product()
+        p['name'] = 'Диоден халоген 1брой'
+        p['description'] = 'Работно напрежение: 12-24V DC. Свързване: Три проводника. LED осветление.'
+        fields, evidence = infer_fields(p, {'E': '21978'}, self.template)
+        self.assertEqual(fields['GA'], 'Car Plug')
+        self.assertEqual(fields['GC'], '12-24V')
+        self.assertEqual(fields['GD'], 'Without Battery')
+        self.assertEqual(fields['RJ'], 1)
+        self.assertEqual(fields['RK'], 'piece')
+        self.assertEqual(fields['FY'], 'LED Lights')
+        self.assertNotIn('RD', fields)
+
+    def test_xenon_set_and_glass(self):
+        p = self.product()
+        p['name'] = 'Ксенонови крушки D2S 4300K 2 БР/К-Т'
+        p['description'] = 'Цокъл: D2S. Изисква съвместим баласт. Комплект: 2 броя. Не докосвайте стъклената част.'
+        fields, _ = infer_fields(p, {'E': '21922'}, self.template)
+        self.assertEqual(fields['FK'], 'Glass')
+        self.assertEqual(fields['GK'], '4300 Kelvin')
+        self.assertEqual(fields['GH'], 'D2S/D2R')
+        self.assertEqual(fields['RJ'], 2)
+        self.assertNotIn('GC', fields)  # Ballast voltage was not published.
+
+    def test_item_size_does_not_become_package_size(self):
+        p = self.product()
+        p['description'] = 'Ширина: 10.5 см. Височина: 12 см. Тегло: 100 g.'
+        fields, _ = infer_fields(p, {'E': '21978'}, self.template)
+        self.assertFalse(any(c in fields for c in ['RD', 'RE', 'RF', 'RG']))
+
+    def test_explicit_package_measurements(self):
+        p = self.product()
+        p['description'] = 'Тегло на опаковката: 0.2 kg. Размери на опаковката: 100 x 80 x 60 mm.'
+        fields, _ = infer_fields(p, {'E': '21978'}, self.template)
+        self.assertEqual(fields['RD'], '200.0')
+        self.assertEqual([fields[c] for c in ['RE', 'RF', 'RG']], ['10.0', '8.0', '6.0'])
+
+    def test_brand_is_not_manufacturer_or_origin(self):
+        fields, _ = infer_fields(self.product(), {'E': '21922'}, self.template)
+        self.assertNotIn('TV', fields)
+        self.assertNotIn('TW', fields)
+        self.assertNotIn('RU', fields)
+
+    def test_export_also_refilters_old_low_stock_checkpoint(self):
+        p = self.product()
+        p['availability'] = 'На изчерпване'
+        with tempfile.TemporaryDirectory() as tmp:
+            summary = make_exports(self.template, self.config, [p], Path(tmp), [], {})
+            self.assertEqual(summary['in_stock_products'], 0)
+            self.assertEqual(summary['excluded'], 1)
+            self.assertNotIn(p['sku'], (Path(tmp) / 'products_with_prices.csv').read_text())
+            self.assertFalse((Path(tmp) / 'temu_draft.xlsx').exists())
 
     def test_ambiguous_price_is_not_guessed(self):
         html = fixture(price='').replace('</div><div id="tab1">', '<div class="price">12 € / 100 € кашон</div></div><div id="tab1">')

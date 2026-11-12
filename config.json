@@ -10,7 +10,24 @@
   "brand_defaults": {},
   "category_defaults": {},
   "sku_categories": {},
-  "sku_overrides": {},
+  "sku_overrides": {
+    "282577": {
+      "RI": "Yes",
+      "_evidence_RI": "https://b2b.paolo.ltd/Images/Items/Big/kruski-za-ksenon-d2s-4300-103253-1.png"
+    },
+    "63659": {
+      "RI": "Yes",
+      "_evidence_RI": "https://b2b.paolo.ltd/Images/Items/Big/dioden-xalogen-6182-1broi-103248-4.png"
+    },
+    "63655": {
+      "RI": "Yes",
+      "_evidence_RI": "https://b2b.paolo.ltd/Images/Items/Big/dioden-xalogen-6172-1broi-103245-2.png"
+    },
+    "63660": {
+      "RI": "Yes",
+      "_evidence_RI": "https://b2b.paolo.ltd/Images/Items/Big/dioden-xalogen-6183-1broi-103205-2.png"
+    }
+  },
   "category_rules": [
     {
       "field": "name",
@@ -207,5 +224,6 @@
       "pattern": "гаечни ключове",
       "category": "15527"
     }
-  ]
+  ],
+  "_stock_filter": "Само Налично / В наличност; На изчерпване и Последни бройки се изключват."
 }

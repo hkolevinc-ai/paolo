@@ -12,6 +12,7 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile, ZIP_DEFLATED
 from xml.sax.saxutils import escape
+from enrichment import infer_fields
 
 NS = {"s": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 TAG = "{" + NS["s"] + "}"
@@ -344,6 +345,9 @@ def map_product(product, config, schema):
         warnings.append('Липсва потвърдена единична B2B цена в EUR')
     # No invented list price. The template explicitly allows N/A.
     v['RC'] = 'N/A'
+    inferred, source_evidence = infer_fields(product, v, schema)
+    v.update(inferred)
+    evidence['extracted_fields'] = source_evidence
     images = product.get('images', '').splitlines()
     for label, limit in [('SKU Images URL', 10), ('Detail Images URL', 96)]:
         for col, image in zip(schema.columns[label][:limit], images):
@@ -362,6 +366,8 @@ def map_product(product, config, schema):
                 raise ValueError('Unknown override column: ' + col)
             v[col] = val
     evidence['configured_fields'] = [k for k in {**base, **overrides} if not k.startswith('_')]
+    evidence['configured_evidence'] = {k.removeprefix('_evidence_'): val
+        for k, val in {**base, **overrides}.items() if k.startswith('_evidence_')}
     # Stock is a seller-selected Temu allocation, never a claimed warehouse count.
     allocation = int(config.get('quantity_if_in_stock', 1))
     if allocation < 1:

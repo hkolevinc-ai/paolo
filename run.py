@@ -51,6 +51,16 @@ def write_templates(schema, rows, output, prefix):
 
 def make_exports(schema, config, products, output, skipped, crawl):
     ready, draft, audit = [], [], []
+    filtered = []
+    excluded_urls = {item['url'] for item in skipped}
+    for product in products:
+        status = stock_state(product)
+        if status == 'in_stock':
+            filtered.append(product)
+        elif product['url'] not in excluded_urls:
+            skipped.append({'sku': product['sku'], 'url': product['url'], 'reason': status})
+            excluded_urls.add(product['url'])
+    products = filtered
     for product in products:
         # Re-filter saved checkpoints too: an old exporter must never bypass stock rules.
         if stock_state(product) != 'in_stock':
@@ -71,6 +81,16 @@ def make_exports(schema, config, products, output, skipped, crawl):
     files += write_templates(schema, ready, output, 'temu_ready')
     csv_file(output / 'validation_report.csv', audit, ['sku', 'name', 'url', 'category', 'price_eur',
              'availability', 'status', 'missing_or_invalid', 'evidence'])
+    missing_fields = []
+    for row in audit:
+        for issue in row['missing_or_invalid'].split(' | '):
+            if not issue:
+                continue
+            col = re.match(r'^([A-Z]{1,3})\s', issue)
+            code = col[1] if col else ''
+            missing_fields.append({'sku': row['sku'], 'category': row['category'], 'column': code,
+                'field': schema.headers.get(code, ''), 'issue': issue, 'url': row['url']})
+    csv_file(output / 'missing_fields.csv', missing_fields, ['sku', 'category', 'column', 'field', 'issue', 'url'])
     csv_file(output / 'products_with_prices.csv', products, ['sku', 'name', 'category', 'brand', 'price',
              'currency', 'price_source', 'price_raw', 'availability', 'purchase_limit',
              'description', 'images', 'options_json', 'url', 'fetched_at'])
@@ -129,8 +149,11 @@ def main():
                     continue
                 event = json.loads(line)
                 visited.add(event['url'])
-                if event.get('product'):
+                if event.get('product') and stock_state(event['product']) == 'in_stock':
                     products.append(event['product'])
+                elif event.get('product'):
+                    skipped.append({'sku': event['product']['sku'], 'url': event['url'],
+                                    'reason': stock_state(event['product'])})
                 else:
                     skipped.append(event)
     if args.export_only:
@@ -140,7 +163,7 @@ def main():
         log.write_text('', encoding='utf-8')
     # Do not re-upload stale ready files if a resumed run fails before login.
     for pattern in ['temu_ready*.xlsx', 'temu_draft*.xlsx', 'products_with_prices.csv',
-                    'validation_report.csv', 'excluded.csv', 'summary.json']:
+                    'validation_report.csv', 'missing_fields.csv', 'excluded.csv', 'summary.json']:
         for path in args.output.glob(pattern):
             path.unlink()
     client = Client(float(config.get('request_delay_seconds', 1.5)))

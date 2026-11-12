@@ -32,6 +32,19 @@ def text(node):
     return " ".join(node.stripped_strings) if node else ""
 
 
+def description_text(node):
+    if not node:
+        return ''
+    blocks = []
+    for block in node.select('p, li, h1, h2, h3, h4, tr'):
+        if any(parent.name in ('p', 'li', 'tr') for parent in block.parents if parent is not node):
+            continue
+        content = text(block)
+        if content:
+            blocks.append(content)
+    return '\n'.join(blocks) if blocks else text(node)
+
+
 def site_url(value):
     url = urljoin(BASE, value)
     u = urlsplit(url)
@@ -144,7 +157,7 @@ def parse_product(html, url, public=False):
         " > ".join(text(a) for a in soup.select('.breadcrumbs a') if text(a) != "Начало"),
         brand, schema.get("gtin", schema.get("gtin13", "")), schema.get("mpn", ""),
         price, currency, source, raw, availability, cap, carton,
-        description.get_text("\n", strip=True) if description else schema.get("description", ""),
+        description_text(description) if description else schema.get("description", ""),
         "\n".join(dict.fromkeys(images)), json.dumps(options, ensure_ascii=False) if options else "",
         url, datetime.now(timezone.utc).isoformat(), "; ".join(issues)]))
 
@@ -153,11 +166,12 @@ def stock_state(product):
     status = re.sub(r'\s+', ' ', product.get('availability', '')).strip().casefold()
     if re.search(r'няма|не\s+е|неналич|изчерпан|очаква|по\s+поръчка|out.of.stock|unavailable|not.available|backorder|pre.?order|discontinued', status):
         return 'out_of_stock'
+    if re.search(r'на\s+изчерпване|последни\s+бройки|low\s+stock|limited\s+availability', status):
+        return 'low_stock'
     cap = product.get('purchase_limit', '')
     if str(cap).strip() == '0':
         return 'out_of_stock'
-    if status in ('налично', 'наличен', 'налични', 'в наличност', 'на изчерпване',
-                  'последни бройки', 'in stock', 'instock', 'limited availability'):
+    if status in ('налично', 'наличен', 'налични', 'в наличност', 'in stock', 'instock'):
         return 'in_stock'
     return 'unknown'
 
