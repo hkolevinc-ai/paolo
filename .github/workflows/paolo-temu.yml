@@ -8,7 +8,7 @@ on:
         default: https://b2b.paolo.ltd/produkti
         type: string
       limit:
-        description: In-stock products (5 = test; 0 = all)
+        description: Selected-category products (5 = test; 0 = all selected)
         required: true
         default: '5'
         type: string
