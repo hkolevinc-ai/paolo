@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 import requests
 
 from paolo import BASE, Client, ScraperError, listing_links, parse_product, site_url, stock_state
-from temu import Template, map_product
+from temu import Template, map_product, classify
 
 ROOT = Path(__file__).resolve().parent
 
@@ -55,10 +55,12 @@ def make_exports(schema, config, products, output, skipped, crawl):
     excluded_urls = {item['url'] for item in skipped}
     for product in products:
         status = stock_state(product)
-        if status == 'in_stock':
+        category, _ = classify(product, config, schema)
+        if status == 'in_stock' and category in schema.categories:
             filtered.append(product)
         elif product['url'] not in excluded_urls:
-            skipped.append({'sku': product['sku'], 'url': product['url'], 'reason': status})
+            reason = 'category_not_selected' if status == 'in_stock' else status
+            skipped.append({'sku': product['sku'], 'url': product['url'], 'reason': reason})
             excluded_urls.add(product['url'])
     products = filtered
     for product in products:
@@ -91,11 +93,17 @@ def make_exports(schema, config, products, output, skipped, crawl):
             missing_fields.append({'sku': row['sku'], 'category': row['category'], 'column': code,
                 'field': schema.headers.get(code, ''), 'issue': issue, 'url': row['url']})
     csv_file(output / 'missing_fields.csv', missing_fields, ['sku', 'category', 'column', 'field', 'issue', 'url'])
-    csv_file(output / 'products_with_prices.csv', products, ['sku', 'name', 'category', 'brand', 'price',
+    prices = []
+    for product in products:
+        category, _ = classify(product, config, schema)
+        prices.append({**product, 'temu_category': category, 'temu_category_name': schema.categories[category]})
+    csv_file(output / 'products_with_prices.csv', prices, ['sku', 'name', 'category', 'temu_category', 'temu_category_name', 'brand', 'price',
              'currency', 'price_source', 'price_raw', 'availability', 'purchase_limit',
              'description', 'images', 'options_json', 'url', 'fetched_at'])
     csv_file(output / 'excluded.csv', skipped, ['sku', 'url', 'reason'])
     summary = {'in_stock_products': len(products), 'ready': len(ready), 'draft': len(draft),
+               'selected_category_products': len(products),
+               'category_not_selected': sum(s.get('reason') == 'category_not_selected' for s in skipped),
                'review': len(draft) - len(ready), 'missing_price': sum(not p.get('price') for p in products),
                'excluded': len(skipped), 'files': files, **crawl,
                'finished_at': datetime.now(timezone.utc).isoformat()}
@@ -149,11 +157,14 @@ def main():
                     continue
                 event = json.loads(line)
                 visited.add(event['url'])
-                if event.get('product') and stock_state(event['product']) == 'in_stock':
+                current_product = event.get('product')
+                category = classify(current_product, config, schema)[0] if current_product else ''
+                if current_product and stock_state(current_product) == 'in_stock' and category in schema.categories:
                     products.append(event['product'])
                 elif event.get('product'):
+                    status = stock_state(event['product'])
                     skipped.append({'sku': event['product']['sku'], 'url': event['url'],
-                                    'reason': stock_state(event['product'])})
+                                    'reason': 'category_not_selected' if status == 'in_stock' else status})
                 else:
                     skipped.append(event)
     if args.export_only:
@@ -220,7 +231,11 @@ def main():
                             break
                         product = parse_product(html if direct else client.get(url), url, public=args.public)
                         stock = stock_state(product)
-                        if stock == 'in_stock' and product['sku'] in seen_skus:
+                        category, _ = classify(product, config, schema)
+                        if stock == 'in_stock' and category not in schema.categories:
+                            event = {'url': url, 'sku': product['sku'], 'reason': 'category_not_selected'}
+                            skipped.append(event)
+                        elif stock == 'in_stock' and product['sku'] in seen_skus:
                             event = {'url': url, 'sku': product['sku'], 'reason': 'duplicate_sku'}
                             skipped.append(event)
                         elif stock == 'in_stock':

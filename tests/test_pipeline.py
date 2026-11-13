@@ -108,6 +108,30 @@ class PipelineTests(unittest.TestCase):
             self.assertNotIn(p['sku'], (Path(tmp) / 'products_with_prices.csv').read_text())
             self.assertFalse((Path(tmp) / 'temu_draft.xlsx').exists())
 
+    def test_export_excludes_product_outside_selected_categories(self):
+        p = self.product()
+        p['category'] = 'Чистачки за кола'
+        p['name'] = 'Чистачка 525 mm'
+        with tempfile.TemporaryDirectory() as tmp:
+            summary = make_exports(self.template, self.config, [p], Path(tmp), [], {})
+            self.assertEqual(summary['selected_category_products'], 0)
+            self.assertEqual(summary['category_not_selected'], 1)
+            self.assertNotIn(p['sku'], (Path(tmp) / 'products_with_prices.csv').read_text())
+            self.assertFalse((Path(tmp) / 'temu_draft.xlsx').exists())
+
+    def test_category_filter_applies_when_loading_previous_checkpoint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = self.product()
+            p['category'], p['name'] = 'Чистачки за кола', 'Чистачка 525 mm'
+            output = Path(tmp)
+            (output / 'checkpoint.jsonl').write_text(json.dumps({'url': p['url'], 'product': p})+'\n')
+            (output / 'crawl_state.json').write_text(json.dumps({'profile': {}, 'start_index': 0}))
+            with patch('sys.argv', ['run.py', '--export-only', '--output', tmp]):
+                self.assertEqual(main(), 0)
+            summary = json.loads((output / 'summary.json').read_text())
+            self.assertEqual(summary['selected_category_products'], 0)
+            self.assertEqual(summary['category_not_selected'], 1)
+
     def test_ambiguous_price_is_not_guessed(self):
         html = fixture(price='').replace('</div><div id="tab1">', '<div class="price">12 € / 100 € кашон</div></div><div id="tab1">')
         self.assertEqual(parse_product(html, BASE + 'pr-test')['price'], '')
@@ -140,6 +164,24 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(len(self.template.categories), 86)
         self.assertEqual(self.template.headers['QZ'], 'Base Price - EUR')
         self.assertEqual(self.template.headers['RA'], 'Reference Link')
+
+    def test_seat_cover_theme_requires_seat_axis_without_inventing_count(self):
+        p = self.product()
+        p['name'] = 'Тапицерия за кола 13 части'
+        p['description'] = 'Комплект от 13 части за предните и задните седалки.'
+        cfg = copy.deepcopy(self.config)
+        cfg['sku_categories'] = {'00123': '22102'}
+        row, errors, _ = map_product(p, cfg, self.template)
+        self.assertEqual(row['PY'], 'Number Of Seats × Model')
+        self.assertNotIn('PZ', row)
+        self.assertFalse(any('PY Variation Theme: невалидна' in e for e in errors))
+        self.assertTrue(any('PZ ' in e for e in errors))
+
+    def test_seat_count_from_explicit_specification(self):
+        p = self.product()
+        p['name'] = 'Тапицерия за 5 места, 13 части'
+        fields, _ = infer_fields(p, {'E': '22102'}, self.template)
+        self.assertEqual(fields['PZ'], '5 seats（2Front Seats+3Rear Seats）')
 
     def test_complete_known_product_can_pass_validation(self):
         product = self.product()

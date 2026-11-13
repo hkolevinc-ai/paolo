@@ -41,6 +41,13 @@ def infer_fields(product, values, schema):
     if match(r'(?:индивидуалн\w*|отделн\w*)\s+(?:защитн\w*\s+)?опаковк'):
         put('RI', 'Yes', 'Описание: индивидуални/отделни опаковки')
 
+    seats = match(r'\b(\d+)\s*(?:мест(?:а|ен|на|ни)|седалки|seats)\b')
+    if seats:
+        seat_options = {5: '5 seats（2Front Seats+3Rear Seats）', 6: '6 Seats',
+                        7: '7 Seats', 8: '8 Seats', 9: '9 Seats'}
+        if int(seats[1]) in seat_options:
+            put('PZ', seat_options[int(seats[1])], seats[0])
+
     light = category in {'21920', '21922', '21927', '21946', '21951', '21955',
                          '21956', '21961', '21964', '21965', '21967', '21968',
                          '21978', '22007', '22028', '21226'}

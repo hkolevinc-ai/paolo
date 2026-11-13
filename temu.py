@@ -375,8 +375,19 @@ def map_product(product, config, schema):
     v.setdefault('QY', allocation)
     evidence['quantity_source'] = 'configured Temu allocation; website in-stock status'
     # Supply a named single SKU axis using the actual source SKU.
-    v.setdefault('PY', 'Model')
-    v.setdefault('QL', str(product['sku']))
+    themes = schema.allowed('PY', v) or []
+    if 'PY' not in v:
+        if 'Model' in themes:
+            v['PY'] = 'Model'
+        elif 'Number Of Seats × Model' in themes:
+            # Seat covers require a seat-count axis. Keep the actual source SKU
+            # as Model; a missing seat count remains a required-field issue.
+            v['PY'] = 'Number Of Seats × Model'
+        elif 'Items' in themes:
+            v['PY'] = 'Items'
+            v.setdefault('QJ', product['name'][:100])
+    if 'Model' in str(v.get('PY', '')):
+        v.setdefault('QL', str(product['sku']))
     source = (product.get('name', '') + '\n' + product.get('description', '')).lower()
     material_source = product.get('name', '').lower() + '\n' + '\n'.join(re.findall(
         r'(?:материал(?:и)?\s*:|изработен[аио]?\s+от|material\s*:)\s*([^\n.;]+)', source))
